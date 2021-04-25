@@ -7,12 +7,15 @@ const { Product, Category, Tag, ProductTag } = require('../../models');
 router.get('/', (req, res) => {
   // find all products
   // be sure to include its associated Category and Tag data
-  Tag.findAll({
+  Product.findAll({
     include: [{
       model: Category,
-      // attributes: ['category_name']
+      attributes: ['category_name']
+    },{
+      model: Tag,
+      attributes: ['tag_name']
     }],
-    model: Tag,
+    model: Product,
     // attributes: ['tag_name']
   })
     .then(dbProductData => res.json(dbProductData))
@@ -25,26 +28,26 @@ router.get('/', (req, res) => {
 // get one product
 router.get('/:id', (req, res) => {
   // find a single product by its `id`
-  Tag.findOne({
+  Product.findOne({
     where: {
       id: req.params.id
     },
     include: [{
       model: Category,
-      // attributes: ['category_name']
-    },
-    {
+      attributes: ['category_name']
+    },{
       model: Tag,
-      // attributes: ['tag_name']
-    }]
+      attributes: ['tag_name']
+    }],
+    model: Product,
+    // attributes: ['tag_name']
+  }).then(dbProductData => {
+    res.json(dbProductData);
   })
-    .then(dbProductData => {
-      res.json(dbProductData);
-    })
-    .catch(err => {
-      console.log(err);
-      res.status(500).json(err);
-    });
+  .catch(err => {
+    console.log(err);
+    res.status(500).json(err);
+  });
 });
 
 // create new product
@@ -57,27 +60,46 @@ router.post('/', (req, res) => {
       tagIds: [1, 2, 3, 4]
     }
   */
+
+  const { price, stock, product_name, category_id, tagIds = [] } = req.body
   Product.create({
-    product_name: req.body.product_name,
-    price: req.body.price,
-    stock: req.body.stock,
-    tagIds: req.body.tagIds
+    product_name: product_name,
+    price: price,
+    stock: stock,
+    tagIds: tagIds,
+    category_id:  category_id
   })
-    .then((product) => {
+    .then(async (product) => {
       // if there's product tags, we need to create pairings to bulk create in the ProductTag model
-      if (req.body.tagIds.length) {
-        const productTagIdArr = req.body.tagIds.map((tag_id) => {
+      if (tagIds.length) {
+        const productTagIdArr = tagIds.map((tag_id) => {
           return {
             product_id: product.id,
             tag_id,
           };
         });
-        return ProductTag.bulkCreate(productTagIdArr);
+        await ProductTag.bulkCreate(productTagIdArr)
       }
-      // if no product tags, just respond
-      res.status(200).json(product);
+
+      // now go get the fully populated model (to match our GET-one )
+      return Product.findOne({
+        where: {
+          id: product.id
+        },
+        include: [{
+          model: Category,
+          attributes: ['category_name']
+        },{
+          model: Tag,
+          attributes: ['tag_name']
+        }],
+        model: Product,
+        // attributes: ['tag_name']
+      })
+    }).then(product => {
+      res.status(201).json(product);
     })
-    .then((productTagIds) => res.status(200).json(productTagIds))
+    // .then((productTagIds) => res.status(200).json(productTagIds))
     .catch((err) => {
       console.log(err);
       res.status(400).json(err);
