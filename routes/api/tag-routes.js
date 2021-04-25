@@ -2,7 +2,7 @@ const router = require('express').Router();
 const { Tag, Category, Product, ProductTag } = require('../../models');
 
 // The `/api/tags` endpoint
-
+//// all i want to get is my tags, not the products as well, so fix that
 router.get('/', (req, res) => {
   // find all tags
   Tag.findAll(
